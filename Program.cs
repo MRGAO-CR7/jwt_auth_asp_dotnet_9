@@ -1,8 +1,7 @@
 using Scalar.AspNetCore;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
-// using Microsoft.AspNetCore.Authentication.jwtBearer;
-using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
+// using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using JwtAuthDotNet9.Data;
 using JwtAuthDotNet9.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
