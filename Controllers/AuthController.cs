@@ -3,75 +3,59 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using JwtAuthDotNet9.Entities;
 using JwtAuthDotNet9.Models;
-using Microsoft.AspNetCore.Http;
+using JwtAuthDotNet9.Services;
+// using Microsoft.AspNetCore.Authentication.jwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 
 namespace JwtAuthDotNet9.Controllers
 {
 
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController(IConfiguration configuration) : ControllerBase
+    public class AuthController(IAuthService authService) : ControllerBase
     {
         public static User user = new();
 
         [HttpPost("register")]
-        public ActionResult<User> Register(UserDto request)
+        public async Task<ActionResult<User>> Register(UserDto request)
         {
-
-            var hashedPassword = new PasswordHasher<User>()
-                .HashPassword(user, request.Password);
-
-            user.UserName = request.UserName;
-            user.PasswordHash = hashedPassword;
+            var user = await authService.RegisterAsync(request);
+            if (user is null)
+            {
+                return BadRequest("User already exists");
+            }
 
             return Ok(user);
         }
 
         [HttpPost("login")]
-        public ActionResult<string> Login(UserDto request)
+        public async Task<ActionResult<string>> Login(UserDto request)
         {
-            if (user.UserName != request.UserName)
+            var token = await authService.LoginAsync(request);
+            if (token is null)
             {
-                return BadRequest("User not found");
+                return Unauthorized("Invalid username or password");
             }
-
-            var hasher = new PasswordHasher<User>();
-            var result = hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-            if (result == PasswordVerificationResult.Failed)
-            {
-                return BadRequest("Wrong password");
-            }
-
-            // In a real application, you would generate a JWT token here
-            var token = CreateToken(user);
 
             return Ok(token);
         }
 
-        private string CreateToken(User user)
+        [Authorize]
+        [HttpGet]
+        public IActionResult AuthenticatedOnlyEndpoint()
         {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, user.UserName)
-            };
+            return Ok("You are authenticated!");
+        }
 
-            var key = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(configuration.GetValue<string>("AppSettings:Token")!)
-            );
-
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
-            var token = new JwtSecurityToken(
-                issuer: configuration.GetValue<string>("AppSettings:Issuer"),
-                audience: configuration.GetValue<string>("AppSettings:Audience"),
-                claims: claims,
-                expires: DateTime.UtcNow.AddDays(1),
-                signingCredentials: creds
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+        [Authorize(Roles = "Admin")]
+        [HttpGet("admin-only")]
+        public IActionResult AdminOnlyEndpoint()
+        {
+            return Ok("You are an admin!");
         }
     }
 }
